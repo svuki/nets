@@ -104,14 +104,17 @@
   "Produces a new net given the layer-outputs FPROP-VALS, layer deltas BPROP_VALS and a learning rate."
   [net fprop-vals bprop-vals learning-rate]
   (in-net net
-          (showlet [derivs (deriv-matrices fprop-vals bprop-vals)
+          (let [derivs (deriv-matrices fprop-vals bprop-vals)
                 scaled-matrices (mapv #(matrix/scale learning-rate %) matrices)
                 weight-update-matrices (mapv #(hprodm %1 %2) scaled-matrices derivs)
-                new-matrices (mapv #(matrix/sub %1 %2) matrices weight-update-matrices)]
+                new-matrices (mapv #(matrix/sub %1 %2) matrices weight-update-matrices)
+                new-biases (mapv #(hprod %1 %2) biases fprop-vals)]
             (assoc net :layers
-                   (mapv (fn [layer matrix] (assoc layer :matrix matrix))
+                   (mapv (fn [layer matrix bias]
+                           (assoc layer :matrix matrix :bias bias))
                          (:layers net)
-                         new-matrices)))))
+                         new-matrices
+                         new-biases)))))
 (defn train
   "Given an INPUT, a TARGET output, a LEARNING-RATE, and the derivative
   of the error function, ERROR-DERIV, train will retrun the net
