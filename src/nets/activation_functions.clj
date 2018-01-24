@@ -6,21 +6,20 @@
   (:require [clojure.algo.generic.math-functions :as math])
   (:gen-class))
 
-(defmacro defvfn-
-  "Defines the vectorized version of non-vector function."
-  [name arglist body]
-  (let [arg (gensym)]
-    `(defn- ~name [~arg]
-       (mapv (fn ~arglist ~body) ~arg))))
+(defn vectorize
+  "Takes a function and returns its vectorized form."
+  [func]
+  (fn [v] (mapv func v)))
 
-(defvfn- sigmoid [x] (/ 1.0 (+ 1 (math/exp (- x)))))
-(defvfn- sigmoid-deriv [x] (* (sigmoid-fn x) (- 1 (sigmoid-fn x))))
 
-(defvfn- tanh [x] (- (* 2 (sigmoid-fn (* 2 x))) 1))
-(defvfn- tanh-deriv [x] (- 1 (math/pow (sigmoid-fn x) 2)))
+(defn sigmoid [x] (/ 1.0 (+ 1 (math/exp (- x)))))
+(defn sigmoid-deriv [x] (* (sigmoid x) (- 1 (sigmoid x))))
 
-(defvfn- relu [x] (max 0 x))
-(defvfn- relu-deriv [x] (if (> x 0) 1.0 0.0))
+(defn tanh [x] (- (* 2 (sigmoid (* 2 x))) 1))
+(defn- tanh-deriv [x] (- 1 (math/pow (sigmoid x) 2)))
+
+(defn- relu [x] (max 0 x))
+(defn- relu-deriv [x] (if (> x 0) 1.0 0.0))
 ;;; TODO: specify how relu-deriv is handled, provide options for alternative implementations
 
 
@@ -31,9 +30,9 @@
     (mapv #(/ % sum) exps)))
 
 (def ^:dynamic act-fns (transient {}))
-(assoc! act-fns :sigmoid [sigmoid sigmoid-deriv])
-(assoc! act-fns :tanh [tanh tanh-deriv])
-(assoc! act-fns :relu [relu relu-deriv])
+(assoc! act-fns :sigmoid (mapv vectorize [sigmoid sigmoid-deriv]))
+(assoc! act-fns :tanh (mapv vectorize [tanh tanh-deriv]))
+(assoc! act-fns :relu (mapv vectorize [relu relu-deriv]))
 
 
 ; TODO: what if result is nil?
