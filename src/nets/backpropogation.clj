@@ -1,4 +1,4 @@
-(ns nets.core
+(ns nets.backpropogation
   (:require [clojure.algo.generic.math-functions :as math]
             [clojure.core.matrix :as matrix]
             [clojure.test :as test]
