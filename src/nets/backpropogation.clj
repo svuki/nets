@@ -101,14 +101,15 @@
     (mapv #(matrix/mmul %1 %2) ys ds)))
 
 (defn weight-update
-  "Produces a new net given the layer-outputs FPROP-VALS, layer deltas BPROP_VALS and a learning rate."
+  "Produces a new net given the layer-outputs FPROP-VALS, layer deltas BPROP-VALS and a LEARNING-RATE."
   [net fprop-vals bprop-vals learning-rate]
   (in-net net
           (let [derivs (deriv-matrices fprop-vals bprop-vals)
                 scaled-matrices (mapv #(matrix/scale learning-rate %) matrices)
                 weight-update-matrices (mapv #(hprodm %1 %2) scaled-matrices derivs)
                 new-matrices (mapv #(matrix/sub %1 %2) matrices weight-update-matrices)
-                new-biases (mapv #(hprod %1 %2) biases fprop-vals)]
+                new-biases (mapv #(mapv - %1 (matrix/scale learning-rate %2))
+                                 biases bprop-vals)]
             (assoc net :layers
                    (mapv (fn [layer matrix bias]
                            (assoc layer :matrix matrix :bias bias))
