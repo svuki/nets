@@ -9,4 +9,4 @@
   (* 0.5 (reduce + (mapv #(math/pow (- %1 %2) 2) ideal actual))))
 (defn l2-deriv ;vectorized
   [ideal actual]
-  (- ideal actual))
+  (mapv - ideal actual))
