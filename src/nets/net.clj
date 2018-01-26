@@ -2,7 +2,8 @@
 (ns nets.net
   (:require [nets.activation-functions :as afs]
             [clojure.algo.generic.math-functions :as math]
-            [clojure.core.matrix :as matrix])
+            [clojure.core.matrix :as matrix]
+            [nets.net.utils :as utils])
   (:gen-class))
 
 (defn- fill-matrix
@@ -17,9 +18,6 @@
   [d]
   (let [lim (/ 1 (math/sqrt d))]
     (fn [] (+ (- lim) (rand (* 2 lim))))))
-
-;;; TODO, allow the user to pass in a custom matrix population function
-;;; TODO, change matrix population functiont o be dependent on input...
 
 (defn matrices
   "Returns a vector matrices such that the i_th element is the matrix
@@ -50,26 +48,27 @@
   to vectors corresponding to the layer data. For example,
   (nth matrices 0) === (nth (:layers net) 0)."
   [net body]
-  `(let [~'matrices (matrices net)
-         ~'biases (biases net)
-         ~'act-fns (act-fns net)
-         ~'deriv-fns (deriv-fns net)]
+  `(let [~'matrices (matrices ~net)
+         ~'biases (biases ~net)
+         ~'act-fns (act-fns ~net)
+         ~'deriv-fns (deriv-fns ~net)]
      ~body))
 
-
+; TODO: test
 (defn- good-dimensions?
   "Takes a net NET and ensures the dimensions of its matrices fit together.
   Note that the input vectors are assumed to be row vectors, so the matrix's
   column size describes the dimensions of the input."
   [net]
-  (print net)
   (let [row-size (fn [m] (matrix/dimension-count m 0))
         col-size (fn [m] (matrix/dimension-count m 1))
+        dims (fn [m] [(row-size m) (col-size m)])
         dimensions
-        (cons (:num-inputs net)
-              (mapv #(vector (col-size %) (row-size %)) (matrices net)))]
-      ; The last matrix's output dimension is discarded in the check
-      (every? (fn [[x y]] (= x y)) (partition 2 (butlast dimensions)))))
+        (reduce
+         (fn [ret m] (into ret (dims m)))
+         [(:num-inputs net)]
+         (matrices net))]
+    (every? (fn [[x y]] (= x y)) (partition 2 (butlast dimensions)))))
 
 (defn new-net
   "Returns a new net with NUM-INPUTS inputs. The remaining input are vectors of size two, the 0th value describing the amount of neurons in the layer and the 1th value a keyword corresponding to one of the activation function as specified in nets.activation-functions. Currently each layer is assumed to be fully connected and the weights are chosen to be between (-1/sqrt (d), 1/sqrt (d)) where d is the number of neurons in the preceding layer. In addition a bias vector will be initialized in all layers as the 0 vector.
