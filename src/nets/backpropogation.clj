@@ -89,10 +89,9 @@
               ; and the derivation of i_th layer input value
                (mapv vector
                      (mapv #(matrix/transpose %) (rest matrices))
-                     (mapv #(%1 (matrix/mmul %2 %3))
+                     (mapv #(%1 %2)
                            (butlast deriv-fns)
-                           (butlast layer-inputs)
-                           (butlast matrices)))))))))
+                           (butlast layer-inputs)))))))))
 
 (defn deriv-matrices
   "To calculate the derivative of the error with respect to i_th weight matrix, the equation is
