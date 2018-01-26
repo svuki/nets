@@ -9,18 +9,20 @@
 ;;; This namespace implements the backpropogation algorithm. It follows the convention
 ;;; that vectors are row vectors (as opposed to column vectors) so matrix
 ;;; multiplication is (v * M).
-(defmacro in-net
-  "ANAPHORIC MACRO, binds unqualified symbols: matrices biases act-fns deriv-fns
-  to vectors corresponding to the layer data. For example,
-  (nth matrices 0) === (nth (:layers net) 0)  ."
-  [net body]
-  `(let [~'matrices (mapv #(:matrix %) (:layers ~net))
-         ~'biases (mapv #(:bias %) (:layers ~net))
-         ~'act-fns (mapv #(:act-fn %) (:layers ~net))
-         ~'deriv-fns (mapv #(:deriv-fn %) (:layers ~net))]
-     ~body))
 
 ; TODO: cache pre-activation values as well b/c those are used in backpropogate
+(defn net-eval
+  "Passes INPUT through NET retruning the result."
+  [net input]
+  {:pre [(= (:num-inputs net) (count input))]}
+  (net/in-net net
+              (reduce
+               (fn [out [matrix bias act-fn]]
+                 ;Compute the output of the next layer
+                 (act-fn (matrix/add (matrix/mmul out matrix) bias)))
+               input
+               (mapv vector matrices biases act-fns))))
+
 (defn propogate-forward
   "Propogates an input through the net, returning the intermediate layer outputs. The
   return vector has the following structure:
@@ -28,7 +30,7 @@
   [net input]
   {:pre [(= (:num-inputs net) (count input))]
    :post [(= (count (:layers net)) (dec (count %)))]}
-  (in-net net
+  (net/in-net net
           (reductions
            (fn [out [matrix bias act-fn]]
            ;Compute the output of the next layer
@@ -66,7 +68,7 @@
   [net fprop-values true-value deriv-error-fn]
   {:pre [(= (count (last fprop-values)) (count true-value))]
    :post [(= (count (:layers net)) (count %))]}
-  (in-net net
+  (net/in-net net
           (let [output (last fprop-values)
                 error-deriv (deriv-error-fn output true-value)
                 ; Compute the preactivation layer-inputs
@@ -103,7 +105,7 @@
 (defn weight-update
   "Produces a new net given the layer-outputs FPROP-VALS, layer deltas BPROP-VALS and a LEARNING-RATE."
   [net fprop-vals bprop-vals learning-rate]
-  (in-net net
+  (net/in-net net
           (let [derivs (deriv-matrices fprop-vals bprop-vals)
                 scaled-matrices (mapv #(matrix/scale learning-rate %) matrices)
                 weight-update-matrices (mapv #(hprodm %1 %2) scaled-matrices derivs)
