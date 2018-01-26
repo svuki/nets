@@ -4,8 +4,7 @@
   (:require [nets.activation-functions :as afs]
             [clojure.algo.generic.math-functions :as math]
             [clojure.core.matrix :as matrix]
-            [nets.net.utils :as utils]
-            [clojure.pprint :as])
+            [nets.utils :as utils])
   (:gen-class))
 
 (defn- fill-matrix
@@ -90,4 +89,25 @@
         deriv-fns (mapv #(afs/get-deriv (second %)) layers)]
     {:num-inputs num-inputs
      :layers (mapv (fn [m b a d] {:matrix m :bias b :act-fn a :deriv-fn d})
-                   matrices biases act-fns deriv-fns)}))
+                   matrices biases act-fns deriv-fns)
+     :af-names (mapv #(second %) layers)}))
+
+
+(defn show-layer
+  "Shows the layer-size, the matrix connecting the previous layer to this layer,
+  bias vectors, and the name of the associated activation function."
+  [layer act-fn-kword]
+  (matrix/pm (:matrix layer))
+  (printf "Bias: ")
+  (print (:bias layer))
+  (newline)
+  (printf "Activation function: %s\n" (name act-fn-kword))
+  (printf "Layer, size: %d ==================================\n"
+          (matrix/dimension-count (:matrix layer) 1)))
+
+(defn show-net
+  "A pretty printer for nets"
+  [net]
+  (printf "Input layer, size: %d =================================\n"
+          (:num-inputs net))
+  (dorun (map show-layer (:layers net) (:af-names net))))
