@@ -23,20 +23,35 @@
                input
                (mapv vector matrices biases act-fns))))
 
-(defn propogate-forward
-  "Propogates an input through the net, returning the intermediate layer outputs. The
-  return vector has the following structure:
-  [input layer-0-output layer-1-output ... output(output-layer-output)]"
+(defn propogate-forward-inner
+  "Propogates an INPUT through NET, a vector of the form [V1 V2 X]
+  where V1 is a vector of the layer-outputs, V2 a vector of the layer-preactivation
+  values and X the outputs of the net. Note that The last element of V1 is the output
+  of the last hidden layer."
   [net input]
-  {:pre [(= (:num-inputs net) (count input))]
-   :post [(= (count (:layers net)) (dec (count %)))]}
   (net/in-net net
-          (reductions
-           (fn [out [matrix bias act-fn]]
-           ;Compute the output of the next layer
-             (act-fn (matrix/add (matrix/mmul out matrix) bias)))
-           input
-           (mapv vector matrices biases act-fns))))
+              (reduce
+               (fn [[l-outv l-pactv l-out] [matrix bias act-fn]]
+                 (let [n-pact (matrix/add (matrix/mmul l-out matrix) bias)
+                       n-out (act-fn n-pact)]
+                   [(conj l-outv l-out)
+                    (conj l-pactv n-pact)
+                    n-out]))
+               [[] [] input]
+               (mapv vector matrices biases act-fns))))
+
+(defn propogate-forward-outer
+  "Takes NET and INPUT and passes them to propogate-forward-inner, converting
+   the returned values to the map
+  {:layer-outputs V1 :layer-preact V2 :net-output X}
+  V1 is a vector whose i_th component is the output of the i_th layer (the 0
+  layer is the input layer whose output is simply the input itself).
+  V2 is a vector whose i_th component is the preactivation value of
+  i + 1 layer (the input value has no preactivation value).
+  X is the vector outputted by the whole net"
+  [net input]
+  (let [fprop-data (propogate-forward-inner net input)]
+    (zipmap [:layer-outputs :layer-preact :net-output] fprop-data)))
 
 (defn- hprod
   "Returns the componentwise product of vectors V1 and V2."
@@ -50,18 +65,6 @@
 (defn- mapvmapv
   [func vector]
   (mapv #(mapv func %) vector))
-
-(defmacro showlet
-  "Performs a let binding as usual, but prints out the value of each binding immediately
-  after the binding succeeds."
-  [letvec body]
-  (if (empty? letvec)
-    body
-    (let [[symbol expr & r] letvec]
-      `(let [~symbol ~expr]
-         (do (print ~(name symbol) ~symbol)
-             (newline)
-             (showlet ~r ~body))))))
 
 ;; TODO: change fprop so that it caches the right value isntead of recomputing it here
 (defn backpropogate
