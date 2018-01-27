@@ -15,9 +15,8 @@
        (cost-fn target zero-vec))))
 
 (defn- float-stringer
-  "Converts the vector of floats VEC into a vector of strings of N places after
-  the decimal point. EG:
-  (vec-> str [0.123 0.123] 2) ==> [\"0.12\" \"0.12\"]"
+  "Converts floats into strings of N decimal length. Converts
+  vectors of numbers into vectors of strings of N decimal length."
   [n x]
   (let [fstring (str "%." (format "%d" n) "f")]
     (if (vector? x)
@@ -56,5 +55,44 @@
                                   (:cost-fn training-profile)))]
     (if (>= 1 iterations)
       ; hardcoded 20
-      (sample-output next-net training-profile 20)
+      (do (sample-output next-net training-profile 20)
+          (let [cont (continue-prompt training-profile)]
+            (when cont
+              (train-for next-net
+                         (assoc training-profile :lrate (second cont))
+                         (first cont)))))
       (recur next-net training-profile (dec iterations)))))
+
+(defn- prompt-read
+  [prompt]
+  (printf "%s: " prompt)
+  (flush)
+  (read-line))
+
+(defn- y-or-n?
+  [prompt]
+  (= "y"
+     (loop []
+       (or
+        (re-matches #"[yn]" (.toLowerCase (prompt-read prompt)))
+        (do (newline)
+            (recur))))))
+
+; TODO: make it responsive so user knows trianing is continuig
+(defn- continue-prompt
+  [tprofile]
+  (if (y-or-n? "Continue training? (y/n)")
+    (do (newline)
+        (printf "How many interations? (integer) ")
+        (flush)
+        (let [iterations (Integer. (read-line))]
+          (newline)
+          (if (y-or-n? (format "The current learning rate is %f. Would you like to change it? (y/n) "
+                               (float (:lrate tprofile))))
+            (do (newline)
+                (printf "Enter a new value: ")
+                (flush)
+                (let [new-lrate (Float. (read-line))]
+                  [iterations new-lrate]))
+            [iterations (:lrate tprofile)])))
+    nil))
