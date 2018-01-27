@@ -10,7 +10,6 @@
 ;;; that vectors are row vectors (as opposed to column vectors) so matrix
 ;;; multiplication is (v * M).
 
-; TODO: cache pre-activation values as well b/c those are used in backpropogate
 (defn net-eval
   "Passes INPUT through NET retruning the result."
   [net input]
@@ -57,74 +56,77 @@
   "Returns the componentwise product of vectors V1 and V2."
   [v1 v2]
   (mapv * v1 v2))
+
 (defn- hprodm
   "Returns the Hadamard product of matrics M1 and M2"
   [m1 m2]
   (mapv #(hprod %1 %2) m1 m2))
 
-(defn- mapvmapv
-  [func vector]
-  (mapv #(mapv func %) vector))
+(defn error-signal
+  "Calculates the error-signal at the output layer using the map
+  produced by forward-propogate-outer FPROP-MAP, the gradient of the
+  cost chosen cost function COST-GRAD-FN, and the target output TARGET."
+  [fprop-map target cost-grad-fn deriv-fn]
+  (let [err-gradient (cost-grad-fn (:net-output fprop-map) target)
+        layer-grad (deriv-fn (last (:layer-preact fprop-map)))]
+    (hprod err-gradient layer-grad)))
 
-;; TODO: change fprop so that it caches the right value isntead of recomputing it here
-(defn backpropogate
-  [net fprop-values true-value deriv-error-fn]
-  {:pre [(= (count (last fprop-values)) (count true-value))]
-   :post [(= (count (:layers net)) (count %))]}
+(defn deltas
+  [net fprop-map target cost-grad-fn]
   (net/in-net net
-          (let [output (last fprop-values)
-                error-deriv (deriv-error-fn output true-value)
-                ; Compute the preactivation layer-inputs
-                layer-inputs (mapv #(matrix/add (matrix/mmul %1 %2) %3)
-                                   (butlast fprop-values) matrices biases)
-                ; Compute the error-signal at the output layer
-                error-signal (hprod error-deriv
-                                    ((last deriv-fns) (last layer-inputs)))]
-            (reverse
-             (reductions
-              (fn [prev-error-signal [prev-matrix layer-deriv]]
-                (hprod (matrix/mmul prev-error-signal prev-matrix)
-                       layer-deriv))
-              error-signal
-              (reverse
-              ; in order to perform backpropogation for the i_th layer
-              ; we need the transpose of the i+1th matrix
-              ; and the derivation of i_th layer input value
-               (mapv vector
-                     (mapv #(matrix/transpose %) (rest matrices))
-                     (mapv #(%1 %2)
-                           (butlast deriv-fns)
-                           (butlast layer-inputs)))))))))
+      (let [output-delta
+            (error-signal fprop-map target cost-grad-fn (last deriv-fns))]
+        (reverse
+         (reductions
+          (fn [delta-i+1 [matrix-t-i+1 deriv-preact-v-i]]
+            (hprod (matrix/mmul delta-i+1 matrix-t-i+1)
+                   deriv-preact-v-i))
+          output-delta
+          (reverse
+           (mapv vector
+                 (mapv #(matrix/transpose %) (rest matrices))
+                 (mapv #(%1 %2)
+                       (butlast deriv-fns)
+                       (butlast (:layer-preact fprop-map))))))))))
 
 (defn deriv-matrices
-  "To calculate the derivative of the error with respect to i_th weight matrix, the equation is
-  y_(i - 1) o delta_i where y_j is the transpose of the output of the j_th layer and d_j the j_th's layer delta. In order to use the matrix multiplication, the arguments (which are vectors of vectors) are converted to vectors of matrices."
-  [fprop-values bprop-values]
-  (let [ys (mapv #(matrix/transpose %) (mapv vector fprop-values))
-        ds (mapv vector bprop-values)]
+  "Returns a vector of matrices such that the i,j_th value of the k_th
+  matrix is the derivative of the cost function (used to calculate the
+  layer deltas) wit respect to the i,h_th weight in the k_th weight matrix."
+  [layer-outputs deltas]
+  ;;; To use matrix/transpose we need to cast our vectors as single
+  ;;; row matrices
+  (let [ys (mapv #(matrix/transpose %) (mapv vector layer-outputs))
+        ds (mapv vector deltas)]
     (mapv #(matrix/mmul %1 %2) ys ds)))
 
+(defn weight-update-matrices
+  "Given a net NET, layer-outputs L-OUTS, a learning-rate LRATE, and layer
+  deltas DELTAS, produces a vector of updated matrices such that the i_th
+  component is the updated matrix of the i_th layer in the net."
+  [net l-outs lrate deltas]
+  (let [matrices (net/matrices net)
+        derivs (deriv-matrices l-outs deltas)
+        scaled-derivs (mapv #(matrix/scale lrate %) derivs)]
+    (mapv #(matrix/sub %1 %2) matrices scaled-derivs)))
+
 (defn weight-update
-  "Produces a new net given the layer-outputs FPROP-VALS, layer deltas BPROP-VALS and a LEARNING-RATE."
-  [net fprop-vals bprop-vals learning-rate]
-  (net/in-net net
-          (let [derivs (deriv-matrices fprop-vals bprop-vals)
-                scaled-matrices (mapv #(matrix/scale learning-rate %) matrices)
-                weight-update-matrices (mapv #(hprodm %1 %2) scaled-matrices derivs)
-                new-matrices (mapv #(matrix/sub %1 %2) matrices weight-update-matrices)
-                new-biases (mapv #(mapv - %1 (matrix/scale learning-rate %2))
-                                 biases bprop-vals)]
-            (assoc net :layers
-                   (mapv (fn [layer matrix bias]
-                           (assoc layer :matrix matrix :bias bias))
-                         (:layers net)
-                         new-matrices
-                         new-biases)))))
+  "Produces a new net with updated matrices according to LRATE."
+  [net l-outs deltas lrate]
+  (let [new-matrices (weight-update-matrices net l-outs lrate deltas)
+        new-biases (mapv #(mapv - %1 (matrix/scale lrate %2))
+                         (net/biases net) deltas)]
+    (assoc net :layers
+           (mapv (fn [layer matrix bias]
+                   (assoc layer :matrix matrix :bias bias))
+                 (:layers net)
+                 new-matrices
+                 new-biases))))
 (defn train
   "Given an INPUT, a TARGET output, a LEARNING-RATE, and the derivative
   of the error function, ERROR-DERIV, train will retrun the net
   resulting from performing backpropogation on this particular input."
-  [net input target learning-rate error-deriv]
-  (let [fvals (propogate-forward net input)
-        bvals (backpropogate net fvals target error-deriv)]
-    (weight-update net fvals bvals learning-rate)))
+  [net input target lrate cost-gradient-fn]
+  (let [fprop-map (propogate-forward-outer net input)
+        ds (deltas net fprop-map target cost-gradient-fn)]
+    (weight-update net (:layer-outputs fprop-map) ds lrate)))
