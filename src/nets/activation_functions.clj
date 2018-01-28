@@ -50,10 +50,30 @@
     (mapv #(/ % sum)
           exps)))
 
-(defn- softmax-grad [v]
-  "The gradient of the softmax function. Note that this function is
-   vector valued."
-  [] nil)
+;;; TODO: when associated with certain loss functions, the computation of
+;;; the soft-max "gradient" can be simplified. Detect when such
+;;; such functions are used in unison and do the cheaper computatoins
+(defn- kdelta
+  "The kronecker delta. Returns 1.0 if i == j and 0.0 otherwise."
+  [i j]
+  (if (= i j) 1.0 0.0))
+
+(defn- make-matrix
+  "Takes integer M, integer N, and a function F of two arguments.
+  Produces a matrix of M rows and N columns such that the (i,j) entry
+  is (F i j)"
+  [m n f]
+  (let [mat-indices (map (fn [i] (map (fn [j] [i j]) (range n))) (range m))]
+    (mapv #(mapv (fn [[i j]] (f i j)) %) mat-indices)))
+
+(defn- softmax-jacobian
+  "Given a vector v, returns the jacobian matrix of the softmax function
+  evaluated at v."
+  [v]
+  (make-matrix (count v) (count v)
+               (fn [i j] (* (nth v i)
+                            (- (kdelta i j)
+                               (nth v j))))))
 
 (def ^:dynamic act-fns (transient {}))
 (assoc! act-fns :sigmoid (mapv vectorize [sigmoid sigmoid-deriv]))
