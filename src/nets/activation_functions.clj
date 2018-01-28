@@ -37,8 +37,15 @@
   (cond (> x 0) 1.0
         (<= x 0) (* 0.01 x)))
 
-;;; TODO: softmax has a tendency to return NaN. Implement a normalization to keep the return value
-;;; reasonable
+(defn- softplus
+  [x]
+  (Math/log (+ 1.0 (Math/exp x))))
+(defn- softplus-grad
+  [x]
+  (/ 1.0
+    (+ 1 (Math/log (- x)))))
+;;; TODO: softmax has a tendency to return NaN. Implement a normalization to keep
+;;; the return value reasonable
 (defn- softmax
   "Implements the softmax function. Note that this is a vector valued
    function. Given argument v of dimension K, the i_th component of the
@@ -75,19 +82,21 @@
                             (- (kdelta i j)
                                (nth v j))))))
 
+
+
 (def ^:dynamic act-fns (transient {}))
 (assoc! act-fns :sigmoid (mapv vectorize [sigmoid sigmoid-deriv]))
 (assoc! act-fns :tanh (mapv vectorize [tanh tanh-deriv]))
 (assoc! act-fns :relu (mapv vectorize [relu relu-deriv]))
+(assoc! act-fns :softmax [softmax softmax-jacobian])
+(assoc! act-fns :softplus (mapv vectorize [softplus softplus-grad]))
 
-
-; TODO: what if result is nil?
 (defn get-fn
   "Returns the function associated with NAME. Returns nil if no function is found."
   [name]
   (first (get act-fns name)))
 
-; TODO: what if result is nil?
+; TODO: function should be renamed to get-gradient or get-grad
 (defn get-deriv
   "Returns the derivativ eof the function associated with NAME. Returns nil if no function is found."
   [name]
