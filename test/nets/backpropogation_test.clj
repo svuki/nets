@@ -71,9 +71,6 @@
                bprop-vals)
             "Calculates backpropogation values correctly"))))
 
-(def fvals (b/propogate-forward-outer basic-net [1 1]))
-(b/backpropogate2 basic-net fvals [2.0] #(mapv - %1 %2))
-
 (def deriv-matrices
   [[[-4.0 0.0 -6.0]
     [-4.0 0.0 -6.0]]
