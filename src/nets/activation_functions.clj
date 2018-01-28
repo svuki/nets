@@ -11,6 +11,14 @@
   [func]
   (fn [v] (mapv func v)))
 
+(defn no-NaN?
+  "Ensures x is not NaN"
+  [x]
+  (not (Double/isNaN x)))
+(defn no-NaNs?
+  "Ensures no element in v is NaN"
+  [v]
+  (not-any? #(Double/isNaN %) v))
 
 (defn sigmoid [x] (/ 1.0 (+ 1 (math/exp (- x)))))
 (defn sigmoid-deriv [x] (* (sigmoid x) (- 1 (sigmoid x))))
@@ -20,14 +28,32 @@
 
 (defn- relu [x] (max 0 x))
 (defn- relu-deriv [x] (if (> x 0) 1.0 0.0))
-;;; TODO: specify how relu-deriv is handled, provide options for alternative implementations
 
+(defn- leaky-relu [x] (max 0 x))
+(defn- leaky-relu-deriv
+  "Similar to rectified linear units, but the derivative is
+   a small number (implemented as (* 0.01 x)) for X <= 0."
+  [x]
+  (cond (> x 0) 1.0
+        (<= x 0) (* 0.01 x)))
 
-;;; TODO: unlike the other functions, softmax is a vector function, meaning its derivative cannot be implemented componentwise.
-(defn- softmax [v] ; Note that this is already in vectorized form
+;;; TODO: softmax has a tendency to return NaN. Implement a normalization to keep the return value
+;;; reasonable
+(defn- softmax
+  "Implements the softmax function. Note that this is a vector valued
+   function. Given argument v of dimension K, the i_th component of the
+   return vector is (e^(v_i) / (sum (j = 0 to K) e^(v_j))."
+  [v]
+  {:post [(no-NaNs? %)]}
   (let [exps (mapv math/exp v)
-        sum (reduce + exps)]
-    (mapv #(/ % sum) exps)))
+        sum (apply + exps)]
+    (mapv #(/ % sum)
+          exps)))
+
+(defn- softmax-grad [v]
+  "The gradient of the softmax function. Note that this function is
+   vector valued."
+  [] nil)
 
 (def ^:dynamic act-fns (transient {}))
 (assoc! act-fns :sigmoid (mapv vectorize [sigmoid sigmoid-deriv]))
