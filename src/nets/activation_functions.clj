@@ -3,7 +3,8 @@
 ;;; which search the dynamic variable ACT-FNS for functiions associated with a given
 ;;; name. To add another activation function, use ADD-FUNCTIONS.
 (ns nets.activation-functions
-  (:require [clojure.algo.generic.math-functions :as math])
+  (:require [clojure.algo.generic.math-functions :as math]
+            [clojure.core.matrix :as matrix])
   (:gen-class))
 
 (defn vectorize
@@ -44,18 +45,20 @@
   [x]
   (/ 1.0
     (+ 1 (Math/log (- x)))))
-;;; TODO: softmax has a tendency to return NaN. Implement a normalization to keep
-;;; the return value reasonable
+
 (defn- softmax
   "Implements the softmax function. Note that this is a vector valued
    function. Given argument v of dimension K, the i_th component of the
    return vector is (e^(v_i) / (sum (j = 0 to K) e^(v_j))."
   [v]
   {:post [(no-NaNs? %)]}
-  (let [exps (mapv math/exp v)
+  ; to avoid overflows we subtract the largest x from each of the values
+  ; before exponentiating. Note that this does not change the value of
+  ; the output
+  (let [x (apply max v)
+        exps (mapv #(math/exp (- % x)) v)
         sum (apply + exps)]
-    (mapv #(/ % sum)
-          exps)))
+    (mapv #(/ % sum) exps)))
 
 ;;; TODO: when associated with certain loss functions, the computation of
 ;;; the soft-max "gradient" can be simplified. Detect when such
@@ -73,16 +76,20 @@
   (let [mat-indices (map (fn [i] (map (fn [j] [i j]) (range n))) (range m))]
     (mapv #(mapv (fn [[i j]] (f i j)) %) mat-indices)))
 
+;; TODO: check that this should in fact be the tranpose
 (defn- softmax-jacobian
-  "Given a vector v, returns the jacobian matrix of the softmax function
-  evaluated at v."
+  "Given a vector v, returns the tranpose of the jacobian matrix
+  of the softmax function evaluated at v."
   [v]
-  (make-matrix (count v) (count v)
-               (fn [i j] (* (nth v i)
-                            (- (kdelta i j)
-                               (nth v j))))))
-
-
+  ; To keep with the convention that we multiply by row vectors on the left
+  ; we transpose the jacboian so that the first column gives the partial
+  ; derivatives of the first component function of softmax with respect
+  ; to the the inputs v_0 .. v_n.
+  (matrix/transpose
+   (make-matrix (count v) (count v)
+                (fn [i j] (* (nth v i)
+                             (- (kdelta i j)
+                                (nth v j)))))))
 
 (def ^:dynamic act-fns (transient {}))
 (assoc! act-fns :sigmoid (mapv vectorize [sigmoid sigmoid-deriv]))
