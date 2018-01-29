@@ -56,3 +56,30 @@
   [iterations]
   (let [test-net (net/new-net 1 [40 :relu] [1 :sigmoid])]
     (core/train-for test-net sin-tprofile iterations)))
+
+
+;;; Floor function
+;;; TODO: make it work. The trials converge to predicting a particular value always
+;;; Soon after we get a divison by zero error from the cross-entropy gradient
+(defn floor-input
+  [] [(/ (rand 5) 5.0)])
+(defn floor-output
+  [[y]]
+  (let [index (int (Math/floor (* y 5.0)))]
+    ; We want to use the softmax activation function and
+    ; cross entropy as the cost function, so we'll treat
+    ; the target output as a vector of size 5 with a 1
+    ; at position index and 0s everywhere else
+    (if (= 0 index)
+      [1.0 0.0 0.0 0.0 0.0]
+      (into (conj (vec (take index (repeat 0.0))) 1.0)
+            (vec (take (dec (- 5 index)) (repeat 0.0)))))))
+
+(def floor-tprofile
+  {:lrate 0.01 :cost-fn :cross-entropy
+   :input-fn floor-input :output-fn floor-output})
+
+(defn floor-example
+  [iterations]
+  (let [test-net (net/new-net 1 [30 :relu] [5 :softmax])]
+    (core/train-for test-net floor-tprofile iterations)))
