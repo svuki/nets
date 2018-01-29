@@ -3,7 +3,10 @@
             [clojure.core.matrix :as matrix]
             [clojure.test :as test]
             [nets.net :as net]
-            [clojure.math.numeric-tower])
+            [clojure.math.numeric-tower]
+            [nets.activation-functions :as afs]
+            [nets.error-functions :as efs]
+            )
   (:gen-class))
 
 ;;; This namespace implements the backpropogation algorithm. It follows the convention
@@ -52,24 +55,51 @@
   (let [fprop-data (propogate-forward-inner net input)]
     (zipmap [:layer-outputs :layer-preact :net-output] fprop-data)))
 
-(defn- hprod
-  "Returns the componentwise product of vectors V1 and V2."
-  [v1 v2]
-  (mapv * v1 v2))
+; hacky: and if v is a float? or a list?
+(defn- not-matrix? [v]
+  {:pre [(vector? v)]}
+  (not (vector? (first v))))
 
-(defn- hprodm
-  "Returns the Hadamard product of matrics M1 and M2"
-  [m1 m2]
-  (mapv #(hprod %1 %2) m1 m2))
+(defn- hprod-or-mmul
+  "Receives two arguments X1 and X2. If both are vectors, then returns the
+  component-wise product (hadamard product) of X1 and X2. If X2 is a matrix,
+  returns the matrix multiplication X1 and X2. This is done to accomodate activation
+  functions like softmax where the whole jacobian must be used to compute the error.
+  For now, X1 should never be a matrix."
+  [x1 x2]
+  {:pre [(vector? x1)]}
+  (if (not-matrix? x2)
+    (mapv * x1 x2)
+    (matrix/mmul x1 x2)))
 
+(defn- smax-cent?
+  "Returns true if the net has a softmax output layer and the cost function
+  is the cross-entropy-function"
+  [maybe-smax maybe-cent]
+  (and (= maybe-smax (afs/get-deriv :softmax))
+       (= maybe-cent (efs/get-cost-grad :cross-entropy))))
+
+(defn- soft-max-cross-entropy-error-signal
+  "A simplified formula to handle the use of softmax on the output layer
+  with cross entropy for the cost function. This reduces the rate of
+  arithmetic exceptions raised when computing the two seperately for this
+  computation"
+  [actual target]
+  (mapv - actual target))
+
+; TODO: change this
 (defn error-signal
   "Calculates the error-signal at the output layer using the map
   produced by forward-propogate-outer FPROP-MAP, the gradient of the
   cost chosen cost function COST-GRAD-FN, and the target output TARGET."
   [fprop-map target cost-grad-fn deriv-fn]
-  (let [err-gradient (cost-grad-fn (:net-output fprop-map) target)
-        layer-grad (deriv-fn (last (:layer-preact fprop-map)))]
-    (hprod err-gradient layer-grad)))
+  (if (smax-cent? deriv-fn cost-grad-fn)
+    (soft-max-cross-entropy-error-signal
+     (:net-output fprop-map)
+     target)
+    (let [err-gradient (cost-grad-fn (:net-output fprop-map) target)
+          layer-grad (deriv-fn (last (:layer-preact fprop-map)))]
+      (hprod-or-mmul err-gradient layer-grad))))
 
 (defn deltas
   [net fprop-map target cost-grad-fn]
@@ -79,8 +109,8 @@
         (reverse
          (reductions
           (fn [delta-i+1 [matrix-t-i+1 deriv-preact-v-i]]
-            (hprod (matrix/mmul delta-i+1 matrix-t-i+1)
-                   deriv-preact-v-i))
+            (hprod-or-mmul (matrix/mmul delta-i+1 matrix-t-i+1)
+                           deriv-preact-v-i))
           output-delta
           (reverse
            (mapv vector
