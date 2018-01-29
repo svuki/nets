@@ -14,23 +14,26 @@
     (/ (cost-fn output target)
        (cost-fn target zero-vec))))
 
-(defn- float-stringer
+(defn- to-string
   "Converts floats into strings of N decimal length. Converts
-  vectors of numbers into vectors of strings of N decimal length."
+  vectors of numbers into a single string for printing."
   [n x]
   (let [fstring (str "%." (format "%d" n) "f")]
     (if (vector? x)
-      (mapv #(format fstring %) (mapv float x))
+      (apply str
+             (interpose
+              " "
+              (mapv #(format fstring %) (mapv float x))))
       (format fstring (float x)))))
 
 (defn sample-printer
-  [inputs outputs targets errors perrors]
-  (let [float-formatter (partial float-stringer 5)
-        v (mapv #(mapv float-formatter %) [inputs outputs targets errors perrors])]
+  [inputs outputs targets errors]
+  (let [float-formatter (partial to-string 5)
+        v (mapv #(mapv float-formatter %) [inputs outputs targets errors])]
     (clojure.pprint/print-table
      (apply
-      (partial mapv #(zipmap [:input :output :target :error :perror]
-                             (vector %1 %2 %3 %4 %5)))
+      (partial mapv #(zipmap ["INPUT" "OUTPUT" "TARGET" "ERROR"]
+                             (vector %1 %2 %3 %4)))
       v))))
 
 (defn sample-output
@@ -41,9 +44,47 @@
         outputs (mapv #(backprop/net-eval net %) inputs)
         targets (mapv (:output-fn training-profile) inputs)
         errors (mapv (error-fns/get-cost-fn (:cost-fn training-profile))
-                     targets outputs)
-        perrors (mapv #(perror %1 %2 training-profile) outputs targets)]
-    (sample-printer inputs outputs targets errors perrors)))
+                     outputs targets)
+        ;perrors (mapv #(perror %1 %2 training-profile) outputs targets)
+        ]
+    (sample-printer inputs outputs targets errors)))
+
+
+
+(defn- prompt-read
+  [prompt]
+  (printf "%s: " prompt)
+  (flush)
+  (read-line))
+
+(defn- y-or-n?
+  [prompt]
+  (= "y"
+     (loop []
+       (or
+        (re-matches #"[yn]" (.toLowerCase (prompt-read prompt)))
+        (do (newline)
+            (recur))))))
+
+                                        ; TODO: make it responsive so user knows trianing is continuig
+(defn- continue-prompt
+  [tprofile]
+  (if (y-or-n? "Continue training? (y/n)")
+    (do (newline)
+        (printf "How many interations? (integer) ")
+        (flush)
+        (let [iterations (Integer. (read-line))]
+          (newline)
+          (if (y-or-n? (format "The current learning rate is %f. Would you like to change it? (y/n) "
+                               (float (:lrate tprofile))))
+            (do (newline)
+                (printf "Enter a new value: ")
+                (flush)
+                (let [new-lrate (Float. (read-line))]
+                  [iterations new-lrate]))
+            [iterations (:lrate tprofile)])))
+    nil))
+
 
 (defn train-for
   [net training-profile iterations]
@@ -63,36 +104,3 @@
                          (first cont)))))
       (recur next-net training-profile (dec iterations)))))
 
-(defn- prompt-read
-  [prompt]
-  (printf "%s: " prompt)
-  (flush)
-  (read-line))
-
-(defn- y-or-n?
-  [prompt]
-  (= "y"
-     (loop []
-       (or
-        (re-matches #"[yn]" (.toLowerCase (prompt-read prompt)))
-        (do (newline)
-            (recur))))))
-
-; TODO: make it responsive so user knows trianing is continuig
-(defn- continue-prompt
-  [tprofile]
-  (if (y-or-n? "Continue training? (y/n)")
-    (do (newline)
-        (printf "How many interations? (integer) ")
-        (flush)
-        (let [iterations (Integer. (read-line))]
-          (newline)
-          (if (y-or-n? (format "The current learning rate is %f. Would you like to change it? (y/n) "
-                               (float (:lrate tprofile))))
-            (do (newline)
-                (printf "Enter a new value: ")
-                (flush)
-                (let [new-lrate (Float. (read-line))]
-                  [iterations new-lrate]))
-            [iterations (:lrate tprofile)])))
-    nil))
