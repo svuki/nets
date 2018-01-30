@@ -4,10 +4,11 @@
 ;;; name. To add another activation function, use ADD-FUNCTIONS.
 (ns nets.activation-functions
   (:require [clojure.algo.generic.math-functions :as math]
-            [clojure.core.matrix :as matrix])
+            [clojure.core.matrix :as matrix]
+            [nets.matrix-utils :as m-utils])
   (:gen-class))
 
-(defn vectorize
+(defn- vectorize
   "Takes a function and returns its vectorized form."
   [func]
   (fn [v] (mapv func v)))
@@ -63,18 +64,7 @@
 ;;; TODO: when associated with certain loss functions, the computation of
 ;;; the soft-max "gradient" can be simplified. Detect when such
 ;;; such functions are used in unison and do the cheaper computatoins
-(defn- kdelta
-  "The kronecker delta. Returns 1.0 if i == j and 0.0 otherwise."
-  [i j]
-  (if (= i j) 1.0 0.0))
 
-(defn- make-matrix
-  "Takes integer M, integer N, and a function F of two arguments.
-  Produces a matrix of M rows and N columns such that the (i,j) entry
-  is (F i j)"
-  [m n f]
-  (let [mat-indices (map (fn [i] (map (fn [j] [i j]) (range n))) (range m))]
-    (mapv #(mapv (fn [[i j]] (f i j)) %) mat-indices)))
 
 ;; TODO: check that this works
 (defn- softmax-jacobian
@@ -86,9 +76,9 @@
   ; derivatives of the first component function of softmax with respect
   ; to the the inputs v_0 .. v_n.
   (matrix/transpose
-   (make-matrix (count v) (count v)
-                (fn [i j] (* (nth v i)
-                             (- (kdelta i j)
+   (m-utils/make-matrix (count v) (count v)
+                        (fn [i j] (* (nth v i)
+                                     (- (m-utils/kdelta i j)
                                 (nth v j)))))))
 
 (def ^:dynamic act-fns (transient {}))
@@ -111,6 +101,6 @@
   (second (get act-fns name)))
 
 (defn add-function
-  "Enables the function FN and its derivative DERIVA to be found using get-fn and get-deriv."
+  "Enables the function FN and its jacobian/gradient to be found using get-fn and get-deriv."
   [name fn deriv]
   (assoc! act-fns name [fn deriv]))
