@@ -8,7 +8,7 @@
   vectors of numbers into a single string space seperated string."
   [n x]
   (let [fstring (str "%." (format "%d" n) "f")]
-    (if (seq? x)
+    (if (not (number? x))
       (apply str
              (interpose
               " "
