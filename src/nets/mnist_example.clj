@@ -2,7 +2,9 @@
   (:require
             [nets.net :as net]
             [nets.backpropogation :as backprop]
-            [nets.error-functions :as error-fns]))
+            [nets.error-functions :as error-fns]
+            [nets.printers :as printers])
+  (:use nets.utils nets.matrix-utils))
 
 ;;; This file contains an example using the MNIST handwritten digit
 ;;; classification data set. The data is is located in external files,
@@ -33,6 +35,7 @@
   "Sets the filestream to the byte of the first label"
   [label-stream]
   (.seek label-stream 8))
+
 (defn get-label
   "Returns the Nth label as an integer."
   [label-stream]
@@ -64,12 +67,6 @@
           (do (go-to-images fstream)
               (get-image fstream)))))
 
-(defn one-hot
-  "Returns a vector of size M with all zeros except for a 1 at
-  index INDEX."
-  [index m]
-  (into (conj (take index (repeat 0.0)) 1.0)
-        (take (- (dec m) index) (repeat 0.0))))
 
 (def mnist-training-input-fn
   #(get-image training-images-stream))
@@ -98,30 +95,17 @@
   (let [target-index (.indexOf target 1.0)]
     (= target-index (first prediction-vec))))
 
-(defn prinsep
-  []
-  (printf "-----------------------------------------------------------")
-  (newline))
 (defn print-summary
   [output target]
   (let [pvec (prediction-vector output)]
     (printf "Predicts %d with confidence %.3f.\n" (first pvec) (second pvec))
     (printf "Actual: %d.\n" (.indexOf target 1.0))))
-(defn print-comparison
-  [v1 v2]
-  {:pre [(= (count v1) (count v2))]}
-  (if (empty? v1)
-    (prinsep)
-    (do (printf "%.5f   " (first v1))
-        (printf "%.5f   " (first v2))
-        (newline)
-        (recur (rest v1) (rest v2)))))
 
 (defn printer
   [output target]
   (print-summary output target)
   (newline)
-  (print-comparison output target))
+  (printers/print-vec-comp output target))
 
 (defn mnist-sample
   [net training-profile trials]
@@ -129,21 +113,6 @@
         output  (map #(backprop/net-eval net %) inputs)
         targets (map (:output-fn training-profile) (range trials))]
     (dorun (map printer output targets))))
-
-(defn- prompt-read
-  [prompt]
-  (printf "%s: " prompt)
-  (flush)
-  (read-line))
-
-(defn- y-or-n?
-  [prompt]
-  (= "y"
-     (loop []
-       (or
-        (re-matches #"[yn]" (.toLowerCase (prompt-read prompt)))
-        (do (newline)
-            (recur))))))
 
 (defn continue-prompt
   [tprofile]
