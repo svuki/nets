@@ -2,24 +2,17 @@
   (:require [nets.backpropogation :as backprop]
             [nets.net :as net]
             [nets.activation-functions :as act-fns]
-            [nets.error-functions :as error-fns])
+            [nets.error-functions :as error-fns]
+            [clojure.pprint]
+            [nets.mnist-example :as mnist])
   (:gen-class))
-
-(defn perror
-  "Calculates the percent error given an ERROR and a TARGET value.
-  Currently this only works for the l2-metric."
-  [output target training-profile]
-  (let [zero-vec (take (count target) (repeat 0))
-        cost-fn (error-fns/get-cost-fn :mean-squared)]
-    (/ (cost-fn output target)
-       (cost-fn target zero-vec))))
 
 (defn- to-string
   "Converts floats into strings of N decimal length. Converts
   vectors of numbers into a single string for printing."
   [n x]
   (let [fstring (str "%." (format "%d" n) "f")]
-    (if (vector? x)
+    (if (seq? x)
       (apply str
              (interpose
               " "
@@ -44,12 +37,8 @@
         outputs (mapv #(backprop/net-eval net %) inputs)
         targets (mapv (:output-fn training-profile) inputs)
         errors (mapv (error-fns/get-cost-fn (:cost-fn training-profile))
-                     outputs targets)
-        ;perrors (mapv #(perror %1 %2 training-profile) outputs targets)
-        ]
+                     outputs targets)]
     (sample-printer inputs outputs targets errors)))
-
-
 
 (defn- prompt-read
   [prompt]
@@ -66,8 +55,7 @@
         (do (newline)
             (recur))))))
 
-                                        ; TODO: make it responsive so user knows trianing is continuig
-(defn- continue-prompt
+(defn continue-prompt
   [tprofile]
   (if (y-or-n? "Continue training? (y/n)")
     (do (newline)
@@ -104,3 +92,9 @@
                          (first cont)))))
       (recur next-net training-profile (dec iterations)))))
 
+
+;;;;;;;;;;;;;;;;;
+
+(defn -main
+  [ iterations ]
+  (mnist/mnist-example (Integer. iterations)))
