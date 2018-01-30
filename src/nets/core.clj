@@ -4,30 +4,10 @@
             [nets.activation-functions :as act-fns]
             [nets.error-functions :as error-fns]
             [clojure.pprint]
-            [nets.mnist-example :as mnist])
+            [nets.mnist-example :as mnist]
+            [nets.printers :as printers])
+  (:use [nets.utils])
   (:gen-class))
-
-(defn- to-string
-  "Converts floats into strings of N decimal length. Converts
-  vectors of numbers into a single string for printing."
-  [n x]
-  (let [fstring (str "%." (format "%d" n) "f")]
-    (if (seq? x)
-      (apply str
-             (interpose
-              " "
-              (mapv #(format fstring %) (mapv float x))))
-      (format fstring (float x)))))
-
-(defn sample-printer
-  [inputs outputs targets errors]
-  (let [float-formatter (partial to-string 5)
-        v (mapv #(mapv float-formatter %) [inputs outputs targets errors])]
-    (clojure.pprint/print-table
-     (apply
-      (partial mapv #(zipmap ["INPUT" "OUTPUT" "TARGET" "ERROR"]
-                             (vector %1 %2 %3 %4)))
-      v))))
 
 (defn sample-output
   "Produces the output and the error for N iterations of NET under profile
@@ -38,24 +18,12 @@
         targets (mapv (:output-fn training-profile) inputs)
         errors (mapv (error-fns/get-cost-fn (:cost-fn training-profile))
                      outputs targets)]
-    (sample-printer inputs outputs targets errors)))
+    (printers/sample-printer inputs outputs targets errors)))
 
-(defn- prompt-read
-  [prompt]
-  (printf "%s: " prompt)
-  (flush)
-  (read-line))
-
-(defn- y-or-n?
-  [prompt]
-  (= "y"
-     (loop []
-       (or
-        (re-matches #"[yn]" (.toLowerCase (prompt-read prompt)))
-        (do (newline)
-            (recur))))))
 
 (defn continue-prompt
+  "Prompt the user if they'd like to continue training. If they affirm, offers to change
+  the learning rate."
   [tprofile]
   (if (y-or-n? "Continue training? (y/n)")
     (do (newline)
