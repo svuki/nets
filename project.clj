@@ -6,7 +6,8 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/algo.generic "0.1.2"]
                  [net.mikera/core.matrix "0.61.0"]
-                 [org.clojure/math.numeric-tower "0.0.4"]]
+                 [org.clojure/math.numeric-tower "0.0.4"]
+                 [clojurewerkz/buffy "1.1.0"]]
   :main ^:skip-aot nets.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
