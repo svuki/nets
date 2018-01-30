@@ -12,3 +12,18 @@
          (do (print ~(name symbol) ~symbol)
              (newline)
              (showlet ~r ~body))))))
+
+(defn prompt-read
+  [prompt]
+  (printf "%s: " prompt)
+  (flush)
+  (read-line))
+
+(defn y-or-n?
+  [prompt]
+  (= "y"
+     (loop []
+       (or
+        (re-matches #"[yn]" (.toLowerCase (prompt-read prompt)))
+        (do (newline)
+            (recur))))))
