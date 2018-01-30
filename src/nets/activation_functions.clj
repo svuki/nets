@@ -76,7 +76,7 @@
   (let [mat-indices (map (fn [i] (map (fn [j] [i j]) (range n))) (range m))]
     (mapv #(mapv (fn [[i j]] (f i j)) %) mat-indices)))
 
-;; TODO: check that this should in fact be the tranpose
+;; TODO: check that this works
 (defn- softmax-jacobian
   "Given a vector v, returns the tranpose of the jacobian matrix
   of the softmax function evaluated at v."
@@ -95,6 +95,7 @@
 (assoc! act-fns :sigmoid (mapv vectorize [sigmoid sigmoid-deriv]))
 (assoc! act-fns :tanh (mapv vectorize [tanh tanh-deriv]))
 (assoc! act-fns :relu (mapv vectorize [relu relu-deriv]))
+(assoc! act-fns :leaky-relu (mapv vectorize [leaky-relu leaky-relu-deriv]))
 (assoc! act-fns :softmax [softmax softmax-jacobian])
 (assoc! act-fns :softplus (mapv vectorize [softplus softplus-grad]))
 
