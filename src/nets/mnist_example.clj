@@ -3,7 +3,8 @@
             [nets.net :as net]
             [nets.backpropogation :as backprop]
             [nets.error-functions :as error-fns]
-            [nets.printers :as printers])
+            [nets.printers :as printers]
+            [clojure.core.matrix :as matrix])
   (:use nets.utils nets.matrix-utils))
 
 ;;; This file contains an example using the MNIST handwritten digit
@@ -60,9 +61,9 @@
   "Returns the next image as a vector of 784 doubles. Each pixel value is divided
   by the maximum possible pixel value (255) to produce a number between 0 and 1."
   [fstream]
-  (try  (into [] (repeatedly (* 28 28)
-                             (fn [] (/ (.read fstream)
-                                       255.0))))
+  (try  (matrix/array (repeatedly (* 28 28)
+                                  (fn [] (/ (.read fstream)
+                                            255.0))))
         (catch java.io.EOFException e
           (do (go-to-images fstream)
               (get-image fstream)))))
@@ -139,7 +140,7 @@
   [net training-profile iterations]
   (let [input ((:input-fn training-profile))
         output ((:output-fn training-profile) input)
-        next-net (backprop/train net input output
+        next-net (backprop/sgd net input output
                                  (:lrate training-profile)
                                  (error-fns/get-cost-grad
                                   (:cost-fn training-profile)))]
@@ -159,6 +160,6 @@
 
 (defn mnist-example
   [iterations]
-  (let [test-net (net/new-net (* 28 28) [400 :leaky-relu] [200 :leaky-relu] [10 :softmax])]
+  (let [test-net (net/new-net (* 28 28) [400 :relu] [10 :softmax])]
     (mnist-runner test-net mnist-tprofile iterations)))
 
