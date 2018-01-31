@@ -23,7 +23,7 @@
   "In this exmaple, the net is trained to always output [1]."
   [times-to-run]
   (let [test-net (net/new-net 2 [10 :relu] [1 :sigmoid])]
-    (core/train-for test-net always-one-tprofile times-to-run)))
+    (trainers/train-for test-net always-one-tprofile times-to-run)))
 
 (defn reverse-fn
   [[x y]] [y x])
@@ -49,7 +49,7 @@
   [(* 0.5 (inc (Math/sin x)))])
 
 (def sin-tprofile
-  {:lrate 0.05 :cost-fn :mean-squared
+  {:lrate 0.2 :cost-fn :mean-squared
    :input-fn sin-input-fn :output-fn sin-output-fn})
 
 (defn sin-example
