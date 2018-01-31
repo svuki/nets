@@ -1,11 +1,12 @@
-(ns nets.matrix-utils)
-
+(ns nets.matrix-utils
+  (:require [clojure.core.matrix :as matrix]))
 (defn one-hot
   "Returns a vector of size M with all zeros except for a 1 at
   index INDEX."
   [index m]
-  (into (conj (take index (repeat 0.0)) 1.0)
-        (take (- (dec m) index) (repeat 0.0))))
+  (matrix/array
+   (into (conj (take index (repeat 0.0)) 1.0)
+         (take (- (dec m) index) (repeat 0.0)))))
 
 (defn kdelta
   "The kronecker delta. Returns 1.0 if i == j and 0.0 otherwise."
@@ -18,4 +19,4 @@
   is (F i j)"
   [m n f]
   (let [mat-indices (map (fn [i] (map (fn [j] [i j]) (range n))) (range m))]
-    (mapv #(mapv (fn [[i j]] (f i j)) %) mat-indices)))
+    (matrix/matrix (mapv #(mapv (fn [[i j]] (f i j)) %) mat-indices))))
