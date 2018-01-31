@@ -5,7 +5,7 @@
 (ns nets.activation-functions
   (:require [clojure.algo.generic.math-functions :as math]
             [clojure.core.matrix :as matrix]
-            [nets.utilis :as utils]
+            [nets.utils :as utils]
             [nets.matrix-utils :as m-utils])
   (:gen-class))
 
