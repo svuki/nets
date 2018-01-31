@@ -1,5 +1,5 @@
 (ns nets.examples
-  (:require [nets.core :as core]
+  (:require [nets.trainers :as trainers]
             [nets.net :as net]
             [nets.activation-functions :as act-fns]
             [nets.error-functions :as error-fns]
@@ -37,7 +37,7 @@
   [x y] --> [y x]."
   [iterations]
   (let [test-net (net/new-net 2 [20 :relu] [2 :sigmoid])]
-    (core/train-for test-net always-rev-tprofile iterations)))
+    (trainers/train-for test-net always-rev-tprofile iterations)))
 
 (defn sin-input-fn
   []
@@ -55,12 +55,10 @@
 (defn sin-example
   [iterations]
   (let [test-net (net/new-net 1 [40 :relu] [1 :sigmoid])]
-    (core/train-for test-net sin-tprofile iterations)))
+    (trainers/train-for test-net sin-tprofile iterations)))
 
 
 ;;; Floor function
-;;; TODO: make it work. The trials converge to predicting a particular value always
-;;; Soon after we get a divison by zero error from the cross-entropy gradient
 (defn floor-input
   [] [(/ (rand 5) 5.0)])
 (defn floor-output
@@ -76,10 +74,10 @@
             (vec (take (dec (- 5 index)) (repeat 0.0)))))))
 
 (def floor-tprofile
-  {:lrate 0.01 :cost-fn :cross-entropy
+  {:lrate 0.2 :cost-fn :cross-entropy
    :input-fn floor-input :output-fn floor-output})
 
 (defn floor-example
   [iterations]
   (let [test-net (net/new-net 1 [30 :relu] [5 :softmax])]
-    (core/train-for test-net floor-tprofile iterations)))
+    (trainers/train-for test-net floor-tprofile iterations)))
