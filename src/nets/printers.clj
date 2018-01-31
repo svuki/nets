@@ -17,7 +17,7 @@
 
 (defn sample-printer
   "Given vectors INPUTS, OUTPUTS, TARGETS, and ERRORS, prints a table with
-  input | output | target | error on each row. Note that this works poorly for
+  input | output | target | error on each row. This works poorly for
   large vectors."
   [inputs outputs targets errors]
   (let [float-formatter (partial to-string 5)
@@ -34,6 +34,7 @@
   (newline))
 
 (defn print-vec-comp
+  "Prints a side by side comparison of the elements of vector v1 and v2."
   [v1 v2]
   {:pre [(= (count v1) (count v2))]}
   (if (empty? v1)
