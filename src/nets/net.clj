@@ -4,14 +4,17 @@
   (:require [nets.activation-functions :as afs]
             [clojure.algo.generic.math-functions :as math]
             [clojure.core.matrix :as matrix]
+            [clojure.core.matrix.implementations :as mat-imp]
             [nets.utils :as utils])
   (:gen-class))
 
+(mat-imp/set-current-implementation :clatrix)
 (defn- fill-matrix
   "Returns a matrix of dimension M rows and N columns populated with values obtained by calling FUNC. FUNC is a function of 0-arity."
   [num-rows num-cols func]
-  (let [weights (take (* num-rows  num-cols) (repeatedly func))]
-    (partition num-cols weights)))
+  (matrix/matrix
+   (let [weights (take (* num-rows  num-cols) (repeatedly func))]
+     (partition num-rows weights))))
 
 ; Note: this is ideal if the input is normalized
 (defn- weight-initializer
@@ -61,15 +64,11 @@
   Note that the input vectors are assumed to be row vectors, so the matrix's
   column size describes the dimensions of the input."
   [net]
-  (let [row-size (fn [m] (matrix/dimension-count m 0))
-        col-size (fn [m] (matrix/dimension-count m 1))
-        dims (fn [m] [(row-size m) (col-size m)])
-        dimensions
-        (reduce
-         (fn [ret m] (into ret (dims m)))
-         [(:num-inputs net)]
-         (matrices net))]
-    (every? (fn [[x y]] (= x y)) (partition 2 (butlast dimensions)))))
+  (let [dims (map matrix/shape (matrices net))
+        row-sizes (map first dims)
+        col-sizes (map second dims)]
+    (and (= (:num-inputs net) (second (first dims)))
+         (not-any? false? (map = (rest col-sizes) (butlast row-sizes))))))
 
 (defn new-net
   "Returns a new net with NUM-INPUTS inputs. The remaining input are vectors of size two, the 0th value describing the amount of neurons in the layer and the 1th value a keyword corresponding to one of the activation function as specified in nets.activation-functions. Currently each layer is assumed to be fully connected and the weights are chosen to be between (-1/sqrt (d), 1/sqrt (d)) where d is the number of neurons in the preceding layer. In addition a bias vector will be initialized in all layers as the 0 vector.
@@ -84,7 +83,7 @@
         matrices (mapv #(fill-matrix %1 %2 (weight-initializer %1))
                        (into [num-inputs] (butlast dimensions))
                        dimensions)
-        biases (mapv #(repeat % 0) dimensions)
+        biases (mapv #(matrix/array (repeat % 0)) dimensions)
         act-fns (mapv #(afs/get-fn (second %)) layers)
         deriv-fns (mapv #(afs/get-deriv (second %)) layers)]
     {:num-inputs num-inputs
@@ -93,7 +92,7 @@
      :af-names (mapv #(second %) layers)}))
 
 
-(defn show-layer
+(defn- show-layer
   "Shows the layer-size, the matrix connecting the previous layer to this layer,
   bias vectors, and the name of the associated activation function."
   [layer act-fn-kword]
