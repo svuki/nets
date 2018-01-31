@@ -31,8 +31,8 @@
   A = [a_0 ... a_j] is the observed value."
   [actual ideal]
   (let [xs (matrix/emul ideal (matrix/emap (fn [x] (Math/log x)) actual))
-        ys (matrix/emul (matrix/emap dec ideal)
-                        (matrix/emap (fn [x] (Math/log (dec x))) actual))]
+        ys (matrix/emul (matrix/emap #(- 1.0 %) ideal)
+                        (matrix/emap (fn [x] (Math/log (- 1.0 x))) actual))]
     (- (reduce + (into ys xs)))))
 
 ; Todo: rewrite in trems of core.matrix abstraction
