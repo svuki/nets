@@ -1,5 +1,6 @@
 (ns nets.error-functions
-  (:require [clojure.algo.generic.math-functions :as math])
+  (:require [clojure.algo.generic.math-functions :as math]
+            [clojure.core.matrix :as matrix])
   (:gen-class))
 
 ;;; This namespace provides various cost functions and their gradients
@@ -12,17 +13,16 @@
   "Returns the mean squared error of IDEAL and ACTUAL."
   [actual ideal]
   (* 0.5
-     (reduce +
-             (mapv #(Math/pow (- %1 %2) 2)
-                   actual
-                   ideal))))
+     (reduce + (matrix/pow
+                (matrix/sub actual ideal)
+                2))))
 
 (defn- mean-squared-grad
   "The vector derivative of the mean-squared-error function. Component
   i of the return vector is the derivative of the mean-squared-error
   function with respect to the i_th output neuron."
   [actual ideal]
-  (mapv - actual ideal))
+  (matrix/sub actual ideal))
 
 (defn- cross-entropy
   "The cross entropy cost function is defined as
@@ -30,10 +30,12 @@
   where E = [e_0 ... e_j] is the expected value and
   A = [a_0 ... a_j] is the observed value."
   [actual ideal]
-  (let [xs (mapv #(* %1 (Math/log %2)) ideal actual)
-        ys (mapv #(* (- 1.0 %1) (Math/log (- 1.0 %2))) ideal actual)]
+  (let [xs (matrix/emul ideal (matrix/emap (fn [x] (Math/log x)) actual))
+        ys (matrix/emul (matrix/emap dec ideal)
+                        (matrix/emap (fn [x] (Math/log (dec x))) actual))]
     (- (reduce + (into ys xs)))))
 
+; Todo: rewrite in trems of core.matrix abstraction
 ; TODO: at times the gradient of the cross entropy function results in a divison
 ; by zero error. The ideal workaround would be to combine the softmax and
 ; cross-entropy calculation to prevent extreme values in the calculation. For now
@@ -61,6 +63,7 @@
     (if ret
       (first ret)
       (throw (Throwable. "No such cost function is registered.")))))
+
 (defn get-cost-grad
   [kw]
   (let [ret (get cost-fns kw nil)]
