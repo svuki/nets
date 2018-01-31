@@ -27,3 +27,12 @@
         (re-matches #"[yn]" (.toLowerCase (prompt-read prompt)))
         (do (newline)
             (recur))))))
+
+(defn no-NaN?
+  "Ensures x is not NaN"
+  [x]
+  (not (Double/isNaN x)))
+(defn no-NaNs?
+  "Ensures no element in v is NaN"
+  [v]
+  (not-any? #(Double/isNaN %) v))
