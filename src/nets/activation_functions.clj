@@ -44,14 +44,14 @@
    function. Given argument v of dimension K, the i_th component of the
    return vector is (e^(v_i) / (sum (j = 0 to K) e^(v_j))."
   [v]
-  {:post [(utils/no-NaNs? %)]}
+  {:post [(if (not (utils/no-NaNs? %)) (do (print v) (newline) false) true)]}
   ; to avoid overflows we subtract the largest x from each of the values
   ; before exponentiating. Note that this does not change the value of
   ; the output
-  (let [x (apply max v)
-        exps (mapv #(math/exp (- % x)) v)
-        sum (apply + exps)]
-    (mapv #(/ % sum) exps)))
+  (let [x (apply max (seq v))
+        exps (matrix/emap (fn [e] (Math/exp (- e x))) v)
+        sum (matrix/ereduce + exps)]
+    (matrix/emap #(/ % sum) exps)))
 
 ;; TODO: sloppy. In what cases would we use softmax without cross entropy? Would we ever use
 ;; it in a hidden layer? Right now cross-entropy/softmax on output is handled by a seperate
