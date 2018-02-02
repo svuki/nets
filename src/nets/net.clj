@@ -9,6 +9,7 @@
   (:gen-class))
 
 (mat-imp/set-current-implementation :clatrix)
+
 (defn- fill-matrix
   "Returns a matrix of dimension M rows and N columns populated with values obtained by calling FUNC. FUNC is a function of 0-arity."
   [num-rows num-cols func]
@@ -31,13 +32,13 @@
 
 (defn biases
   "Returns a vector of vectors such that the i_th element is the
-  bias vector of the i_th layer."
+  bias vector of the i_th (non-input) layer."
   [net]
   (mapv :bias (:layers net)))
 
 (defn act-fns
   "Returns a vector of functions such that the i_th element is the
-  activation function of the i_th layer."
+  activation function of the i_th (non-input) layer."
   [net]
   (mapv :act-fn (:layers net)))
 
@@ -46,6 +47,12 @@
   derivative of the i_th activation function."
   [net]
   (mapv :deriv-fn (:layers net)))
+
+(defn af-names
+  "Returns a vector of the keywords used to obtain the activation functions. The i_th
+  element corresponds to the i_th (non-input) layer."
+  [net]
+  (:af-names net))
 
 (defmacro in-net
   "ANAPHORIC MACRO, binds unqualified symbols: matrices biases act-fns deriv-fns
@@ -58,7 +65,6 @@
          ~'deriv-fns (deriv-fns ~net)]
      ~body))
 
-; TODO: test
 (defn- good-dimensions?
   "Takes a net NET and ensures the dimensions of its matrices fit together.
   Note that the input vectors are assumed to be row vectors, so the matrix's
@@ -110,3 +116,41 @@
   (printf "Input layer, size: %d =================================\n"
           (:num-inputs net))
   (dorun (map show-layer (:layers net) (:af-names net))))
+
+(defn to-string
+  "Produces a string representation of the net that can be read to produce a net
+  using from-string. Each layer is reduced to a vector of the following form
+  [MATRIX BIAS ACT-FUN-NAME]. From-string can be used to process this data into a
+  usable net."
+  [net]
+  (let [mats (map matrix/to-nested-vectors (matrices net))
+        bs   (map vec (biases net))
+        afs  (af-names net)]
+    (pr-str (mapv vector mats bs afs))))
+
+(defn from-string
+  "Produces a net from a string produced by to-string."
+  [s]
+  (let [net-data (read-string s)
+        mats     (map #(-> % first matrix/matrix) net-data)
+        bs       (map #(-> % second matrix/array) net-data)
+        af-names (map #(last %) net-data)
+        afuns    (map afs/get-fn af-names)
+        dfuns    (map afs/get-deriv af-names)]
+    {:num-inputs (matrix/column-count (first mats))
+     :af-names   af-names
+     :layers
+     (mapv
+      (fn [mat bias a-fun d-fun]
+        {:matrix mat :bias bias :act-fn a-fun :deriv-fn d-fun})
+      mats bs afuns dfuns)}))
+
+
+(defn to-file
+  "Saves NET to file named FNAME."
+  [net fname]
+  (spit fname (to-string net)))
+(defn from-file
+  "Read a net from the given file."
+  [fname]
+  (from-string (slurp fname)))
