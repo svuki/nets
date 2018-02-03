@@ -1,3 +1,4 @@
+
 (ns nets.mnist-example
   (:require
             [nets.net :as net]
@@ -31,6 +32,13 @@
 ;;;         Each label is a single unisgned byte.
 ;;;         Label values range from 0 to 9.
 
+(defn m
+  "Temporary fix to account for wrong order of labels... Also this is why
+  everything is incorrect from a black/white perspective..."
+  [n]
+  (if (= n 0)
+    9
+    (- (mod n (- 9)))))
 
 (defn go-to-labels
   "Sets the filestream to the byte of the first label"
@@ -74,33 +82,34 @@
 ;;; For now we use these function with core/train-for. That function specified
 ;;; that outputs take one argument, so we have to discard the argument here.
 (def mnist-training-output-fn
-  (fn [_] (one-hot (get-label training-labels-stream) 10)))
+  (fn [& rest] (one-hot (get-label training-labels-stream) 10)))
 (def mnist-test-input-fn
   #(get-image test-images-stream))
 (def mnist-test-output-fn
-  (fn [_] (one-hot (get-label test-labels-stream) 10)))
+  (fn [& rest] (one-hot (get-label test-labels-stream) 10)))
 
 (def mnist-tprofile
-  {:lrate 0.2
+  {:lrate 0.1
    :cost-fn :cross-entropy
    :input-fn mnist-training-input-fn
    :output-fn mnist-training-output-fn})
 
 (defn prediction-vector
   [v]
-  (let [mx (apply max v)]
-    [(.indexOf v mx) mx]))
+  (let [mx (apply max (seq v))]
+    [(.indexOf (seq v) mx) mx]))
 
 (defn wrong?
   [prediction-vec target]
-  (let [target-index (.indexOf target 1.0)]
+  (let [target-index (.indexOf (seq target) 1.0)]
     (= target-index (first prediction-vec))))
+
 
 (defn print-summary
   [output target]
   (let [pvec (prediction-vector output)]
     (printf "Predicts %d with confidence %.3f.\n" (first pvec) (second pvec))
-    (printf "Actual: %d.\n" (.indexOf target 1.0))))
+    (printf "Actual: %d.\n" (.indexOf (seq  target) 1.0))))
 
 (defn printer
   [output target]
@@ -108,12 +117,6 @@
   (newline)
   (printers/print-vec-comp output target))
 
-(defn mnist-sample
-  [net training-profile trials]
-  (let [inputs   (repeatedly trials (:input-fn training-profile))
-        output  (map #(backprop/net-eval net %) inputs)
-        targets (map (:output-fn training-profile) (range trials))]
-    (dorun (map printer output targets))))
 
 (defn continue-prompt
   [tprofile]
@@ -133,33 +136,141 @@
             [iterations (:lrate tprofile)])))
     nil))
 
+(use 'mikera.image.core)
+(use 'mikera.image.colours)
+
+(defn invert [val]
+  (if (= 0 val)
+    255
+    (- (mod val (- 255)))))
+
+(defn grey-to-rgb [g-val]
+  (let [grey-val (invert g-val)] (rgb grey-val grey-val grey-val)))
+
+(def digit-img (new-image 28 28))
+(def pixels (get-pixels digit-img))
+
+(defn show-img [img-data]
+  (dotimes [i (* 28 28)]
+    (aset pixels i (nth (map #(-> % (* 255.0) grey-to-rgb) img-data) i)))
+  (set-pixels digit-img pixels)
+  (show digit-img :zoom 5.0))
+
+(defn show-digit [digit-data]
+  (let [img (new-image 28 28)
+        ps (get-pixels img)]
+    (dotimes [i (* 28 28)]
+      (aset ps i (nth (map grey-to-rgb digit-data) i)))
+    (set-pixels img ps)
+    (show img :zoom 10.0)))
+
+(defn mnist-sample
+  [net training-profile trials]
+  (let [inputs  (repeatedly trials (:input-fn training-profile))
+        output  (map #(backprop/net-eval net %) inputs)
+        targets (map (:output-fn training-profile) (range trials))]
+    (dorun (map printer output targets))))
 
 
 (defn mnist-runner
   "A training runner for mnist dataset."
   [net training-profile iterations]
   (let [input ((:input-fn training-profile))
-        output ((:output-fn training-profile) input)
-        next-net (backprop/sgd net input output
+        output ((:output-fn training-profile) input)]
+    ;(show-img (map #(* 255.0 %) input))
+    (let [next-net (backprop/sgd net input output
                                  (:lrate training-profile)
                                  (error-fns/get-cost-grad
                                   (:cost-fn training-profile)))]
-    (when (= 0 (mod iterations 10))
-      (printf "Iterations remaining: %d.\n" iterations)
-      (flush))
-    (if (= 0 iterations)
-      (do (mnist-sample net training-profile 10)
-          (let [cont (continue-prompt training-profile)]
-            (if cont
-              (mnist-runner next-net
-                                 (assoc training-profile :lrate (second cont))
-                                 (first cont))
-              (do (newline)
-                  (printf "OK, exiting.\n")))))
-      (recur next-net training-profile (dec iterations)))))
+      (when (= 0 (mod iterations 500))
+        (printf "Iterations remaining: %d.\n" iterations)
+        (flush)
+        (net/to-file next-net "mnist_net.txt"))
+      (if (= 0 iterations)
+        (do (mnist-sample net training-profile 10)
+            (let [cont (continue-prompt training-profile)]
+              (if cont
+                (mnist-runner next-net
+                              (assoc training-profile :lrate (second cont))
+                              (first cont))
+                (do (newline)
+                    (printf "OK, exiting.\n")))))
+        (recur next-net training-profile (dec iterations))))))
 
 (defn mnist-example
   [iterations]
-  (let [test-net (net/new-net (* 28 28) [400 :relu] [10 :softmax])]
+  (let [test-net (net/new-net (* 28 28) [400 :leaky-relu] [10 :softmax])]
+    (.seek training-images-stream 0)
+    (.seek training-labels-stream 0)
+    (go-to-images training-images-stream)
+    (go-to-labels training-labels-stream)
     (mnist-runner test-net mnist-tprofile iterations)))
 
+(defn mnist-test
+  [net]
+  (go-to-images test-images-stream)
+  (go-to-labels test-labels-stream)
+  (let [preds (map (fn [_] (predict
+                            (backprop/net-eval
+                             net
+                             (get-image test-images-stream))))
+                   (range 10000))
+        actuals (map (fn [_] (get-label test-labels-stream))
+                     (range 10000))]
+    (/ (reduce (fn [acc [p a]]
+                 (if (= p (m a)) (inc acc) (do (printf "%d != %d\n" p (m a))
+                                               (flush)
+                                               acc)))
+               0
+               (map vector preds actuals))
+       10000.0)))
+
+
+
+(defn img-cycler
+  [time-to-cycle]
+  (let [digit-img (new-image 28 28)
+        pixels (get-pixels digit-img)]
+    (.seek training-images-stream 0)
+    (go-to-images training-images-stream)
+    (loop [img-data (get-image training-images-stream)]
+      (dotimes [i (* 28 28)]
+        (aset pixels i (nth (map grey-to-rgb img-data) i)))
+      (set-pixels digit-img pixels)
+      (show digit-img :zoom 10.0)
+      (Thread/sleep time-to-cycle)
+      (recur (get-image training-images-stream)))))
+
+
+(defn rate->msecs
+  [rate]
+  (* 1000
+     (/ 1.0 rate)))
+(defn mnist-img-sample
+  "Shows the specified image and the prediction, shows RATE images per second."
+  [net rate]
+  (go-to-images training-images-stream)
+  (go-to-labels training-labels-stream)
+  (loop
+      [img-data  (mnist-training-input-fn)
+       label-data    (mnist-training-output-fn)]
+    (let [prediction (predict (backprop/net-eval net img-data))
+          actual     (predict label-data)]
+      (show-img img-data)
+      (printf "Predicts: %d, actual: %d.\n" (m prediction) (m actual))
+      (flush)
+      (Thread/sleep (rate->msecs rate))
+      (recur (mnist-test-input-fn) (mnist-test-output-fn)))))
+
+
+(defn img-label
+  []
+  (.seek test-labels-stream 0)
+  (go-to-labels test-labels-stream)
+  (go-to-images test-images-stream)
+  (loop []
+    (show-img (mnist-test-input-fn))
+    (printf "Is: %d.\n" (m (predict (mnist-test-output-fn))))
+    (flush)
+    (Thread/sleep 1000)
+    (recur)))
