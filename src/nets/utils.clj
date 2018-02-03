@@ -36,3 +36,18 @@
   "Ensures no element in v is NaN"
   [v]
   (not-any? #(Double/isNaN %) v))
+
+(defmacro nsecs
+  "Returns the time in nsecs  it took to evaluate form."
+  [expr]
+  `(let [start# (. System (nanoTime))
+         _#     `expr]
+     (double (- (. System (nanoTime)) start#))))
+
+(defmacro time-sec
+  "Returns the time in seconds it took to evaluate form."
+  [expr]
+  `(let [start# (. System (nanoTime))
+         _#     ~expr]
+     (/ (double (- (. System (nanoTime)) start#))
+        1000000000.0)))
