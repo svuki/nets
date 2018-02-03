@@ -20,3 +20,8 @@
   [m n f]
   (let [mat-indices (map (fn [i] (map (fn [j] [i j]) (range n))) (range m))]
     (matrix/matrix (mapv #(mapv (fn [[i j]] (f i j)) %) mat-indices))))
+
+(defn predict
+  "Returns the index of the highest value in the vector."
+  [v]
+  (.indexOf (seq v) (apply max (seq v))))
