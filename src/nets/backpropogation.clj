@@ -151,7 +151,13 @@
   Given an INPUT, a TARGET output, a LEARNING-RATE, and the derivative
   of the error function, ERROR-DERIV, train will retrun the net
   resulting from performing backpropogation on this particular input."
-  [net input target lrate cost-gradient-fn]
-  (let [fprop-map (propogate-forward-outer net input)
-        ds (deltas net fprop-map target cost-gradient-fn)]
-    (weight-update net (:layer-outputs fprop-map) ds lrate)))
+  ([net input target lrate cost-gradient-fn]
+   (let [fprop-map (propogate-forward-outer net input)
+         ds (deltas net fprop-map target cost-gradient-fn)]
+     (weight-update net (:layer-outputs fprop-map) ds lrate)))
+  ([net {input-fn :input-fn output-fn :output-fn
+         cost-kw :cost-fn lrate :lrate}]
+   (let [input (input-fn)
+         target (output-fn input)
+         cost-grad (efs/get-cost-grad cost-kw)]
+     (sgd net input target lrate cost-grad))))
