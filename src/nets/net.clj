@@ -8,7 +8,7 @@
             [nets.utils :as utils])
   (:gen-class))
 
-(mat-imp/set-current-implementation :clatrix)
+(mat-imp/set-current-implementation :persistent-vector)
 
 (defn- fill-matrix
   "Returns a matrix of dimension M rows and N columns populated with values obtained by calling FUNC. FUNC is a function of 0-arity."
@@ -131,7 +131,7 @@
 (defn from-string
   "Produces a net from a string produced by to-string."
   [s]
-  (let [net-data (read-string s)
+  (let [net-data (clojure.edn/read-string s)
         mats     (map #(-> % first matrix/matrix) net-data)
         bs       (map #(-> % second matrix/array) net-data)
         af-names (map #(last %) net-data)
