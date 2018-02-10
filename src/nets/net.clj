@@ -1,13 +1,10 @@
 
 ;;; This namespace provides a function NEW-NET which creates MLP based on the number of inputs, the number of layers, the neurons per layer, and the activation function for a given layer.
 (ns nets.net
-  (:require [nets.activation-functions :as afs]
-            [clojure.algo.generic.math-functions :as math]
+  (:require [clojure.algo.generic.math-functions :as math]
             [clojure.core.matrix :as matrix]
             [clojure.core.matrix.implementations :as mat-imp]
-            [uncomplicate.neanderthal.core :as nc]
-            [uncomplicate.neanderthal.native :as nn]
-            [nets.utils :as utils])
+            [nets.utils.utils :as utils])
   (:gen-class))
 
 (mat-imp/set-current-implementation :clatrix)
