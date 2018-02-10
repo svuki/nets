@@ -1,6 +1,6 @@
 (ns nets.sgd-handler
   (require [nets.net :as net])
-  (use nets.utils))
+  (use nets.utils.utils))
 
 (defn sgd
   "Runs the SGD computation in the current thread."
@@ -15,11 +15,12 @@
            (fn [net]
              (sgd net tprofile iters imp-IF)))))
 
-(defn iter-chunks [n i]
-  (if (< n i)
+(defn- iter-chunks [n i]
+  (if (<= n i)
     (list n)
     (lazy-seq (cons i (iter-chunks (- n i) i)))))
 
+; TODO: improve time estimation. Look into making sgd-handler repl like
 (defn sgd-handler
   "Runs the specified SGD computation in a seperate thread."
   [net-desc tprofile iterations impl-IF]
@@ -40,7 +41,7 @@
         :deref      @computation
         :net        @net
         :done?      (future-done? computation)
-        :save       (apply (partial net/to-file (:to-net impl-IF)) args)
+        :save       (apply (partial net/to-file @net) args)
         :iterations @iters
         :time       (if (and (realized? time-est) @time-est)
                       (printf "Estimated time remaining: %.2f seconds.\n"
