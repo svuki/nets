@@ -5,7 +5,7 @@
             [nets.net :as net])
   (:use uncomplicate.neanderthal.core
         uncomplicate.neanderthal.native
-        nets.utils))
+        nets.utils.utils))
 
 ; TODO: implement a reverse map lookup to determine the activation function keyword
 ; so that it doesn't need to be saved
@@ -27,7 +27,7 @@
   "Returns a net description."
   [[ms bs] af-names]
   {:num-inputs (dim (row (first ms) 0))
-   :matrices (mapv seq ms)
+   :matrices (mapv #(map seq (rows %)) ms)
    :biases (mapv seq bs)
    :act-fns af-names})
 
@@ -40,7 +40,7 @@
   [net {lrate :lrate tdata :training-data cfun :cost-fn} iterations]
   {:pre [(net/description? net)
          (keyword? cfun)
-         (pos? iterations)
+         (not (neg? iterations))
          lrate tdata]}
   (binding
       [sgd/*smax-cent?* (if (and (= cfun :cross-entropy)
@@ -57,13 +57,14 @@
 
 (defn net-eval
   [net input]
-  (if (net/description? net)
-    (net-eval (to-net net) input)
-    (sgd/net-eval net (dv input))))
+  (seq
+   (if (net/description? net)
+     (net-eval (from-net net) (dv input))
+     (sgd/net-eval net (dv input)))))
 
 (def interface
   {:from-net from-net 
-   :run-sgd  run-sgd ; receives description
+   :run-sgd  run-sgd 
    :net-eval net-eval
    :to-vec   seq
    :from-vec dv})
