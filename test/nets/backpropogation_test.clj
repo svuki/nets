@@ -12,14 +12,13 @@
   gradient of the derivative."
   {:num-inputs 2
    :layers
-   [{:matrix [[0.0 1.0 1.0]
-              [1.0 0.0 1.0]]
+   [{:matrix [[0.0 1.0]
+              [1.0 0.0]
+              [1.0 1.0]]
      :bias [1.0 -1.0 1.0]
      :act-fn (fn [v] (mapv inc v))
      :deriv-fn (fn [v] (mapv - v))}
-    {:matrix [[-1.0]
-              [1.0]
-              [-1.0]]
+    {:matrix [[-1.0 1.0 -1.0]]
      :bias [5.0]
      :act-fn (fn [v] (mapv inc v))
      :deriv-fn (fn [v] (mapv - v))}]})
