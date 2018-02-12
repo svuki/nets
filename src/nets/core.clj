@@ -1,10 +1,7 @@
 (ns nets.core
-  (:require [nets.examples :as ex]
-            [nets.mnist-example :as mnist]
-            [nets.benchmark :as bench]))
-
+  (:require [nets.mnist-new :as mnist]
+            [criterium.core :as crit]))
+  
 (defn -main
-  ([]
-   (bench/run-bench))
-  ([arg]
-   (mnist/mnist-example (Integer. arg))))
+  []
+  (time (mnist/mnist-example 10000)))
