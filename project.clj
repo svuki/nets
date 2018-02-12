@@ -8,7 +8,9 @@
                  [net.mikera/core.matrix "0.61.0"]
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [clatrix "0.5.0"]
-                 [uncomplicate/neanderthal "0.18.0"]]
+                 [net.mikera/imagez "0.12.0"]
+                 [uncomplicate/neanderthal "0.18.0"]
+                 [uncomplicate/fluokitten "0.6.1"]]
   :main ^:skip-aot nets.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
