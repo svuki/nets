@@ -1,1 +1,0 @@
-[{:kind :input, :nodes [{:activation-fn nil, :forward-connects [[0 2]], :backward-connects nil} {:activation-fn nil, :forward-connects [[0 -1]], :backward-connects nil}]} {:kind :output, :nodes [{:activation-fn #object[nets.core$sigmoid_fn 0x1e02583b "nets.core$sigmoid_fn@1e02583b"], :forward-connects nil, :backward-connects nil}]}]
