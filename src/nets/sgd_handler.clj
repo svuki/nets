@@ -8,6 +8,7 @@
   ((:run-sgd impl-IF) net-desc tprofile iterations))
 
 (defn- sgd-handler-helper
+  "Helper function to group together updating of NET-ATOM and ITERS-ATOM."
   [net-atom iters-atom tprofile imp-IF]
   (fn [iters]
     (swap! iters-atom #(- % iters))
@@ -27,13 +28,13 @@
   (let [net      (atom net-desc)
         time-est (promise)
         iters    (atom iterations)
-        is       (iter-chunks iterations 50)
+        iter-chunk (iter-chunks iterations 50)
         proc     (sgd-handler-helper
                   net iters tprofile impl-IF)
         computation
         (future
           (do
-            (deliver time-est (time-sec (proc (first is))))
+            (deliver time-est (time-sec (proc (first iter-chunk))))
             (dorun (map proc (rest is)))
             (println "The computation has finished.")))]
     (fn [kw & args]
@@ -49,4 +50,4 @@
                       (println "Still Estiming...\n"))
         (println "Invalid option. Options are :net, :done?, :save, :iterations, :time")))))
         
-                                
+                
